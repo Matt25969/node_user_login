@@ -22,10 +22,10 @@ router.get("/all", (req, res) => {
     .catch(err => res.status(404).json({ noUsers: "There are no users" }));
 });
 
-// @route   GET user/name/:username
+// @route   GET user/name/:username/:password
 // @desc    Get all users from one name
 // @access  Public
-router.get("/name/:username", (req, res) => {
+router.get("/name/:username/:password", (req, res) => {
   const errors = {};
   User.find({ username: req.params.username })
     .then(users => {
@@ -33,7 +33,11 @@ router.get("/name/:username", (req, res) => {
         errors.noUsers = "There are no users";
         res.status(404).json(errors);
       }
-      res.json(users);
+      if (users[0].password === req.params.password){
+        res.json({Status : "Logged In"}).status(200).send();
+      }else{
+        res.json({Status : "Not Logged In"}).status(200).send();
+      }
     })
     .catch(err => res.status(404).json({ noUsers: "There are no users" }));
 });
@@ -45,7 +49,6 @@ router.post("/createUser", (req, res) => {
   
   const { errors, isValid } = validateUserInput(req.body);
   if (!isValid) {
-    console.log(errors)
     return res.json(errors);
   }
   
