@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const bcrypt = require("bcryptjs");
 
 const User = require("../models/user");
 
@@ -10,7 +11,7 @@ const validateUserInput = require("../validation/User");
 // @access  Public
 router.get("/all", (req, res) => {
   const errors = {};
-  User.find({})
+  User.find({}, "-password -email")
     .then(users => {
       if (!users) {
         errors.noUsers = "There are no users";
@@ -26,27 +27,34 @@ router.get("/all", (req, res) => {
 // @desc    Get all users from one name
 // @access  Public
 router.get("/name/:username/:password", (req, res) => {
+   
   const errors = {};
   User.find({ username: req.params.username })
-    .then(users => {
-      if (!users) {
-        errors.noUsers = "There are no users";
+    .then(user => {
+
+      console.log(user)
+
+      if (user.length===0) {
+        errors.noUser = "There are no users with this username";
         res.status(404).json(errors);
       }
-      if (users[0].password === req.params.password){
-        res.json({Status : "Logged In"}).status(200).send();
-      }else{
-        res.json({Status : "Not Logged In"}).status(200).send();
-      }
+
+      bcrypt.compare(req.params.password, user[0].password).then(isMatch => {
+        if (isMatch) {
+          res.json({Status : "Logged In"}).status(200).send();
+        }else{
+          res.json({Status : "Not Logged In"}).status(200).send();
+        }
     })
-    .catch(err => res.status(404).json({ noUsers: "There are no users" }));
+    .catch(err => res.status(404).json(err));
 });
+})
 
 // @route   POST user/createuser
 // @desc    Create a user
 // @access  Public
 router.post("/createUser", (req, res) => {
-  
+
   const { errors, isValid } = validateUserInput(req.body);
   if (!isValid) {
     return res.json(errors);
@@ -58,13 +66,20 @@ router.post("/createUser", (req, res) => {
     password: req.body.password
   });
 
-  newUser.save().then(user => res.json(user))
+  bcrypt.genSalt(10, (err, salt) => {
+    bcrypt.hash(newUser.password, salt, (err, hash) => {
+      if (err) throw err;
+      newUser.password = hash;
+      newUser.save().then(item => res.json({Status:"Account successfully created"}))
         .catch(err => console.log(err));
+    });
+
 
 });
+})
 
 // @route   PUT user/updateuser
-// @desc    Update first user
+// @desc    Update first user **UNSECURE**
 // @access  Public
 router.put("/updateuser", (req, res) => {
 
@@ -104,7 +119,7 @@ router.put("/updateuser", (req, res) => {
 });
 
 // @route   DELETE user/deleteuser
-// @desc    Delete first user
+// @desc    Delete first user **UNSECURE**
 // @access  Public
 router.delete("/deleteUser/:_id", (req, res) => {
 
